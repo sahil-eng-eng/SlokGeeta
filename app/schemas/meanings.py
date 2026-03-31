@@ -13,6 +13,12 @@ class CreateMeaningRequest(BaseModel):
     parent_id: Optional[str] = None
 
 
+class InsertMeaningAboveRequest(BaseModel):
+    """Insert a new meaning directly above an existing sibling."""
+    content: str = Field(min_length=1)
+    target_meaning_id: str = Field(..., description="The meaning above which to insert")
+
+
 class UpdateMeaningRequest(BaseModel):
     content: Optional[str] = Field(default=None, min_length=1)
     visibility: Optional[str] = None  # 'public' | 'private' | 'specific_users'

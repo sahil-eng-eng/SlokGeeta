@@ -121,13 +121,37 @@ class EntityPermissionService:
         entity_id: str,
         granted_by: str,
     ) -> None:
-        """Walk up the hierarchy; ensure explicit view + update visibility if private on ancestors."""
+        """Walk up the hierarchy; ensure explicit view + update visibility if private on ancestors.
+
+        For meanings this includes walking the meaning parent chain (parent_id)
+        all the way to the root, then continuing to the shlok and book.
+        """
         if entity_type == EntityType.MEANING:
             from app.models.meaning import Meaning
-            result = await self.db.execute(
+
+            # Walk meaning parent chain upward
+            current_id = entity_id
+            while True:
+                result = await self.db.execute(
+                    select(Meaning.parent_id, Meaning.shlok_id).where(Meaning.id == current_id)
+                )
+                row = result.one_or_none()
+                if not row:
+                    break
+                parent_id, shlok_id = row.parent_id, row.shlok_id
+                if parent_id:
+                    await self._ensure_parent_meaning_access(
+                        user_id, parent_id, granted_by
+                    )
+                    current_id = parent_id
+                else:
+                    break  # reached root meaning
+
+            # Now propagate to shlok and book
+            result2 = await self.db.execute(
                 select(Meaning.shlok_id).where(Meaning.id == entity_id)
             )
-            shlok_id = result.scalar_one_or_none()
+            shlok_id = result2.scalar_one_or_none()
             if shlok_id:
                 await self._ensure_parent_access(user_id, EntityType.SHLOK, shlok_id, granted_by)
                 shlok = await self.shlok_repo.get_by_id(shlok_id)
@@ -176,6 +200,46 @@ class EntityPermissionService:
                 user_id=user_id,
                 entity_type=entity_type.value,
                 entity_id=entity_id,
+                granted_by=granted_by,
+                permission_level=PermissionLevel.VIEW.value,
+                allowed_actions=[],
+                is_structural=False,
+                is_hidden=False,
+            )
+            await self.repo.upsert(perm)
+
+    async def _ensure_parent_meaning_access(
+        self,
+        user_id: str,
+        meaning_id: str,
+        granted_by: str,
+    ) -> None:
+        """Ensure user has at least view permission on a parent meaning.
+
+        Same never-downgrade rule: if user already has request_edit or direct_edit, keep it.
+        Also upgrades parent meaning visibility from private → specific_users.
+        """
+        from app.repositories.meanings import MeaningRepository
+
+        HIGHER = {PermissionLevel.REQUEST_EDIT.value, PermissionLevel.DIRECT_EDIT.value}
+        existing = await self.repo.get(user_id, EntityType.MEANING.value, meaning_id)
+
+        # 1. Upgrade parent meaning visibility from private → specific_users
+        meaning_repo = MeaningRepository(self.db)
+        parent_meaning = await meaning_repo.get_by_id(meaning_id)
+        if parent_meaning and getattr(parent_meaning, "visibility", "private") == Visibility.PRIVATE.value:
+            await meaning_repo.update(meaning_id, visibility=Visibility.SPECIFIC_USERS.value)
+
+        # 2. Don't downgrade existing explicit request_edit / direct_edit
+        if existing and not existing.is_structural and existing.permission_level in HIGHER:
+            return
+
+        # 3. If no perm or only structural: add explicit view
+        if not existing or existing.is_structural:
+            perm = EntityPermission(
+                user_id=user_id,
+                entity_type=EntityType.MEANING.value,
+                entity_id=meaning_id,
                 granted_by=granted_by,
                 permission_level=PermissionLevel.VIEW.value,
                 allowed_actions=[],

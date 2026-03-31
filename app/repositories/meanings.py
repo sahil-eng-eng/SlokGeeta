@@ -1,7 +1,7 @@
 """Meaning repository — data access for the Meaning model."""
 
 from typing import Optional
-from sqlalchemy import select, update, delete
+from sqlalchemy import select, update, delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.meaning import Meaning
 
@@ -11,10 +11,60 @@ class MeaningRepository:
         self.db = db
 
     async def create(self, meaning: Meaning) -> Meaning:
+        # If no order_index set, place at end among siblings
+        if meaning.order_index == 0:
+            max_idx = await self._max_order_index(
+                meaning.shlok_id, meaning.parent_id
+            )
+            meaning.order_index = max_idx + 1
         self.db.add(meaning)
         await self.db.flush()
         # Re-fetch so that selectin-loaded children are initialised
         return await self.get_by_id(meaning.id)  # type: ignore[return-value]
+
+    async def _max_order_index(
+        self, shlok_id: str, parent_id: Optional[str]
+    ) -> int:
+        """Return the current max order_index among siblings (same parent_id)."""
+        q = select(func.coalesce(func.max(Meaning.order_index), 0)).where(
+            Meaning.shlok_id == shlok_id
+        )
+        if parent_id is None:
+            q = q.where(Meaning.parent_id.is_(None))
+        else:
+            q = q.where(Meaning.parent_id == parent_id)
+        result = await self.db.execute(q)
+        return result.scalar_one()
+
+    async def insert_above(
+        self,
+        shlok_id: str,
+        parent_id: Optional[str],
+        target_order: int,
+        new_meaning: Meaning,
+    ) -> Meaning:
+        """Insert a new meaning above a sibling that has order_index == target_order.
+
+        All siblings with order_index >= target_order get shifted up by 1.
+        The new meaning takes  order_index = target_order.
+        """
+        # Shift siblings at or after target_order
+        shift_q = (
+            update(Meaning)
+            .where(Meaning.shlok_id == shlok_id)
+            .where(
+                Meaning.parent_id == parent_id
+                if parent_id is not None
+                else Meaning.parent_id.is_(None)
+            )
+            .where(Meaning.order_index >= target_order)
+            .values(order_index=Meaning.order_index + 1)
+        )
+        await self.db.execute(shift_q)
+        await self.db.flush()
+
+        new_meaning.order_index = target_order
+        return await self.create(new_meaning)
 
     async def get_by_id(self, meaning_id: str) -> Optional[Meaning]:
         result = await self.db.execute(

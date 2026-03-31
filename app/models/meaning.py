@@ -22,6 +22,7 @@ class Meaning(BaseModel):
         String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    order_index: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     status: Mapped[str] = mapped_column(
         SAEnum(
             ApprovalStatus,

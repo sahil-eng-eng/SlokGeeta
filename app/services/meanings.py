@@ -9,6 +9,7 @@ from app.models.meaning import Meaning
 from app.models.user import User
 from app.schemas.meanings import (
     CreateMeaningRequest,
+    InsertMeaningAboveRequest,
     UpdateMeaningRequest,
     MeaningResponse,
     MeaningListResponse,
@@ -111,6 +112,33 @@ class MeaningService:
         author_map = await self._build_author_map([created])
         return self._to_response(created, author_id, author_map)
 
+    async def insert_meaning_above(
+        self, shlok_id: str, author_id: str, data: InsertMeaningAboveRequest
+    ) -> MeaningResponse:
+        """Insert a new meaning directly above an existing one (same parent, same shlok)."""
+        shlok = await self.shlok_repo.get_by_id(shlok_id)
+        if not shlok:
+            raise ShlokNotFoundException()
+
+        target = await self.repo.get_by_id(data.target_meaning_id)
+        if not target or target.shlok_id != shlok_id:
+            raise MeaningNotFoundException()
+
+        new_meaning = Meaning(
+            shlok_id=shlok_id,
+            parent_id=target.parent_id,
+            author_id=author_id,
+            content=data.content,
+        )
+        created = await self.repo.insert_above(
+            shlok_id=shlok_id,
+            parent_id=target.parent_id,
+            target_order=target.order_index,
+            new_meaning=new_meaning,
+        )
+        author_map = await self._build_author_map([created])
+        return self._to_response(created, author_id, author_map)
+
     async def get_meanings_tree(
         self, shlok_id: str, viewer_id: Optional[str] = None
     ) -> MeaningListResponse:
@@ -208,9 +236,9 @@ class MeaningService:
                 # Orphan (e.g. parent outside this shlok) — promote to root
                 roots.append(m)
 
-        # Sort roots and each node's children by votes desc, created_at asc
+        # Sort roots and each node's children by order_index asc, then created_at asc
         def sort_list(nodes: list[Meaning]) -> list[Meaning]:
-            return sorted(nodes, key=lambda c: (-c.vote_count, c.created_at))
+            return sorted(nodes, key=lambda c: (c.order_index, c.created_at))
 
         roots = sort_list(roots)
         for m in visible_meanings:
