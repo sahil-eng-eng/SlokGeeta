@@ -4,13 +4,15 @@ from collections import defaultdict
 from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.repositories.naam_jap import NaamJapRepository
-from app.models.naam_jap import JapEntry
+from app.models.naam_jap import JapEntry, InstantJapSession
 from app.schemas.naam_jap import (
     SetNaamTargetRequest,
     NaamTargetResponse,
     CreateJapEntryRequest,
     JapEntryResponse,
     DayLogResponse,
+    SaveInstantJapRequest,
+    InstantJapSessionResponse,
 )
 
 
@@ -103,4 +105,47 @@ class NaamJapService:
                 total=sum(en.count for en in grouped[d]),
             )
             for d in sorted(grouped.keys(), reverse=True)
+        ]
+
+    # ── Instant Jap ───────────────────────────────────────────────────────────
+
+    async def save_instant_session(
+        self, owner_id: str, data: SaveInstantJapRequest
+    ) -> InstantJapSessionResponse:
+        session = InstantJapSession(
+            owner_id=owner_id,
+            count=data.count,
+            target=data.target,
+            duration_seconds=data.duration_seconds,
+            completed=data.completed,
+            session_date=date.today(),
+        )
+        created = await self.repo.create_instant_session(session)
+        return InstantJapSessionResponse(
+            id=created.id,
+            owner_id=created.owner_id,
+            count=created.count,
+            target=created.target,
+            duration_seconds=created.duration_seconds,
+            completed=created.completed,
+            session_date=created.session_date,
+            created_at=str(created.created_at),
+        )
+
+    async def get_instant_sessions(
+        self, owner_id: str, limit: int = 20
+    ) -> list[InstantJapSessionResponse]:
+        sessions = await self.repo.get_instant_sessions(owner_id, limit)
+        return [
+            InstantJapSessionResponse(
+                id=s.id,
+                owner_id=s.owner_id,
+                count=s.count,
+                target=s.target,
+                duration_seconds=s.duration_seconds,
+                completed=s.completed,
+                session_date=s.session_date,
+                created_at=str(s.created_at),
+            )
+            for s in sessions
         ]

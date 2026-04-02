@@ -41,3 +41,25 @@ class DayLogResponse(BaseModel):
     date: str
     entries: list[JapEntryResponse]
     total: int
+
+
+# ── Instant Jap ───────────────────────────────────────────────────────────────
+
+class SaveInstantJapRequest(BaseModel):
+    count: int
+    target: int = 108
+    duration_seconds: int
+    completed: bool = False
+
+
+class InstantJapSessionResponse(BaseModel):
+    id: str
+    owner_id: str
+    count: int
+    target: int
+    duration_seconds: int
+    completed: bool
+    session_date: date
+    created_at: str
+
+    model_config = {"from_attributes": True}

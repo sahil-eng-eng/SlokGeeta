@@ -5,7 +5,7 @@ from typing import Optional
 from sqlalchemy import String, Boolean, Text, DateTime, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 from app.models.base import BaseModel
-from app.constants.enums import AuthProvider
+from app.constants.enums import AuthProvider, UserRole
 
 
 class User(BaseModel):
@@ -38,6 +38,16 @@ class User(BaseModel):
         server_default=AuthProvider.EMAIL.value,
     )
     google_id: Mapped[str] = mapped_column(String(255), nullable=True, unique=True)
+    role: Mapped[str] = mapped_column(
+        SAEnum(
+            UserRole,
+            name="user_role_enum",
+            create_constraint=True,
+            values_callable=lambda obj: [e.value for e in obj],
+        ),
+        default=UserRole.USER,
+        server_default=UserRole.USER.value,
+    )
     last_seen_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

@@ -66,6 +66,36 @@ class MeaningRepository:
         new_meaning.order_index = target_order
         return await self.create(new_meaning)
 
+    async def insert_below(
+        self,
+        shlok_id: str,
+        parent_id: Optional[str],
+        target_order: int,
+        new_meaning: Meaning,
+    ) -> Meaning:
+        """Insert a new meaning below a sibling that has order_index == target_order.
+
+        All siblings with order_index > target_order get shifted up by 1.
+        The new meaning takes order_index = target_order + 1.
+        """
+        insert_at = target_order + 1
+        shift_q = (
+            update(Meaning)
+            .where(Meaning.shlok_id == shlok_id)
+            .where(
+                Meaning.parent_id == parent_id
+                if parent_id is not None
+                else Meaning.parent_id.is_(None)
+            )
+            .where(Meaning.order_index >= insert_at)
+            .values(order_index=Meaning.order_index + 1)
+        )
+        await self.db.execute(shift_q)
+        await self.db.flush()
+
+        new_meaning.order_index = insert_at
+        return await self.create(new_meaning)
+
     async def get_by_id(self, meaning_id: str) -> Optional[Meaning]:
         result = await self.db.execute(
             select(Meaning).where(Meaning.id == meaning_id)

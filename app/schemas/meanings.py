@@ -19,6 +19,12 @@ class InsertMeaningAboveRequest(BaseModel):
     target_meaning_id: str = Field(..., description="The meaning above which to insert")
 
 
+class InsertMeaningBelowRequest(BaseModel):
+    """Insert a new meaning directly below an existing sibling (same level)."""
+    content: str = Field(min_length=1)
+    target_meaning_id: str = Field(..., description="The meaning below which to insert")
+
+
 class UpdateMeaningRequest(BaseModel):
     content: Optional[str] = Field(default=None, min_length=1)
     visibility: Optional[str] = None  # 'public' | 'private' | 'specific_users'

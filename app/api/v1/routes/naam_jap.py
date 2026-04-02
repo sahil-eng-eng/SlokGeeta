@@ -15,7 +15,7 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.core.responses import ApiResponse
 from app.models.user import User
-from app.schemas.naam_jap import SetNaamTargetRequest, CreateJapEntryRequest
+from app.schemas.naam_jap import SetNaamTargetRequest, CreateJapEntryRequest, SaveInstantJapRequest
 from app.services.naam_jap import NaamJapService, EntryNotFoundException, EntryForbiddenException
 
 router = APIRouter(prefix="/naam-jap", tags=["naam-jap"])
@@ -98,4 +98,30 @@ async def get_history(
         status_code=200,
         data=[h.model_dump() for h in history],
         message="History retrieved",
+    )
+
+
+# ── Instant Jap ───────────────────────────────────────────────────────────────
+
+@router.post("/instant-sessions", status_code=201, response_model=None)
+async def save_instant_session(
+    body: SaveInstantJapRequest,
+    current_user: User = Depends(get_current_user),
+    service: NaamJapService = Depends(_get_service),
+):
+    session = await service.save_instant_session(current_user.id, body)
+    return ApiResponse(status_code=201, data=session.model_dump(), message="Session saved")
+
+
+@router.get("/instant-sessions", response_model=None)
+async def get_instant_sessions(
+    limit: int = Query(default=20, le=100),
+    current_user: User = Depends(get_current_user),
+    service: NaamJapService = Depends(_get_service),
+):
+    sessions = await service.get_instant_sessions(current_user.id, limit)
+    return ApiResponse(
+        status_code=200,
+        data=[s.model_dump() for s in sessions],
+        message="Sessions retrieved",
     )

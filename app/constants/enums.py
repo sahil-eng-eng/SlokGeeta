@@ -90,3 +90,11 @@ class KirtanCategory(str, enum.Enum):
     DHUN = "dhun"
     STUTI = "stuti"
     OTHER = "other"
+
+
+# ── User roles ─────────────────────────────────────────────────────────────────
+
+class UserRole(str, enum.Enum):
+    USER = "user"
+    ADMIN = "admin"
+    SUPERADMIN = "superadmin"

@@ -62,6 +62,7 @@ class UserResponse(BaseModel):
     bio: Optional[str] = None
     is_verified: bool
     auth_provider: str
+    role: str = "user"
     created_at: datetime
 
     model_config = {"from_attributes": True}

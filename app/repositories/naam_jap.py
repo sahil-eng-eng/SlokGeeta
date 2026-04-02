@@ -3,7 +3,7 @@
 from datetime import date
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.naam_jap import NaamTarget, JapEntry
+from app.models.naam_jap import NaamTarget, JapEntry, InstantJapSession
 
 
 class NaamJapRepository:
@@ -85,3 +85,22 @@ class NaamJapRepository:
     async def delete_entry(self, entry: JapEntry) -> None:
         await self.db.delete(entry)
         await self.db.commit()
+
+    # ── InstantJapSession ─────────────────────────────────────────────────────
+
+    async def create_instant_session(self, session: InstantJapSession) -> InstantJapSession:
+        self.db.add(session)
+        await self.db.commit()
+        await self.db.refresh(session)
+        return session
+
+    async def get_instant_sessions(
+        self, owner_id: str, limit: int = 20
+    ) -> list[InstantJapSession]:
+        result = await self.db.execute(
+            select(InstantJapSession)
+            .where(InstantJapSession.owner_id == owner_id)
+            .order_by(desc(InstantJapSession.created_at))
+            .limit(limit)
+        )
+        return list(result.scalars().all())

@@ -1,7 +1,8 @@
-"""NaamJap models — NaamTarget and JapEntry for daily chanting tracker."""
+"""NaamJap models — NaamTarget, JapEntry, and InstantJapSession."""
 
-from datetime import date as date_type
-from sqlalchemy import String, Text, Integer, Date, ForeignKey
+from datetime import date as date_type, datetime
+from typing import Optional
+from sqlalchemy import String, Text, Integer, Date, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 from app.models.base import BaseModel
 
@@ -26,3 +27,16 @@ class JapEntry(BaseModel):
     entry_date: Mapped[date_type] = mapped_column(Date, nullable=False, index=True)
     time_slot: Mapped[str] = mapped_column(String(100), nullable=False)
     count: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class InstantJapSession(BaseModel):
+    """A quick tap-based jap session — records total taps and duration."""
+
+    __tablename__ = "instant_jap_sessions"
+
+    owner_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    target: Mapped[int] = mapped_column(Integer, nullable=False, default=108)
+    duration_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    completed: Mapped[bool] = mapped_column(default=False, server_default="false")
+    session_date: Mapped[date_type] = mapped_column(Date, nullable=False, index=True)

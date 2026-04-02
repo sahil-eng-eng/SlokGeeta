@@ -1,0 +1,39 @@
+"""add user role
+
+Revision ID: b3c4d5e6f7g8
+Revises: b5d07521ac45
+Create Date: 2025-01-01 00:00:00.000000
+
+"""
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+
+
+# revision identifiers, used by Alembic.
+revision: str = "b3c4d5e6f7g8"
+down_revision: Union[str, None] = "b5d07521ac45"
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    # Create the enum type first
+    user_role_enum = sa.Enum("user", "admin", "superadmin", name="user_role_enum")
+    user_role_enum.create(op.get_bind(), checkfirst=True)
+
+    op.add_column(
+        "users",
+        sa.Column(
+            "role",
+            sa.Enum("user", "admin", "superadmin", name="user_role_enum", create_constraint=True),
+            server_default="user",
+            nullable=False,
+        ),
+    )
+
+
+def downgrade() -> None:
+    op.drop_column("users", "role")
+    sa.Enum(name="user_role_enum").drop(op.get_bind(), checkfirst=True)

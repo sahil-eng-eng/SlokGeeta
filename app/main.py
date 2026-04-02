@@ -26,6 +26,7 @@ from app.api.v1.routes.kirtan import router as kirtan_router
 from app.api.v1.routes.naam_jap import router as naam_jap_router
 from app.api.v1.routes.schedule import router as schedule_router
 from app.api.v1.routes.group import router as group_router
+from app.api.v1.routes.granth import router as granth_router
 
 settings = get_settings()
 limiter = Limiter(key_func=get_remote_address)
@@ -88,3 +89,4 @@ app.include_router(kirtan_router, prefix="/api/v1")
 app.include_router(naam_jap_router, prefix="/api/v1")
 app.include_router(schedule_router, prefix="/api/v1")
 app.include_router(group_router, prefix="/api/v1")
+app.include_router(granth_router, prefix="/api/v1")

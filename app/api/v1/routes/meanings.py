@@ -9,6 +9,7 @@ from app.services.meanings import MeaningService
 from app.schemas.meanings import (
     CreateMeaningRequest,
     InsertMeaningAboveRequest,
+    InsertMeaningBelowRequest,
     UpdateMeaningRequest,
     VoteMeaningRequest,
     MeaningResponse,
@@ -50,6 +51,25 @@ async def insert_meaning_above(
 ):
     service = MeaningService(db)
     result = await service.insert_meaning_above(shlok_id, current_user.id, data)
+    return ApiResponse(
+        status_code=201,
+        message=MEANING_MESSAGES["CREATED"],
+        data=result,
+    )
+
+
+@router.post(
+    "/shloks/{shlok_id}/meanings/insert-below",
+    response_model=ApiResponse[MeaningResponse],
+)
+async def insert_meaning_below(
+    shlok_id: str,
+    data: InsertMeaningBelowRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    service = MeaningService(db)
+    result = await service.insert_meaning_below(shlok_id, current_user.id, data)
     return ApiResponse(
         status_code=201,
         message=MEANING_MESSAGES["CREATED"],

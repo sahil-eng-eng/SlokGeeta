@@ -5,9 +5,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 from app.core.database import get_db
 from app.core.security import decode_token
-from app.exceptions.base import UnauthorizedException
+from app.exceptions.base import UnauthorizedException, ForbiddenException
 from app.constants.messages import AUTH_MESSAGES
 from app.models.user import User
+from app.constants.enums import UserRole
 
 
 async def get_current_user(
@@ -55,3 +56,21 @@ async def get_optional_user(
         return user if user and user.is_active else None
     except Exception:
         return None
+
+
+async def get_admin_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """Require at least admin role."""
+    if current_user.role not in (UserRole.ADMIN.value, UserRole.SUPERADMIN.value):
+        raise ForbiddenException("Admin access required")
+    return current_user
+
+
+async def get_superadmin_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """Require superadmin role."""
+    if current_user.role != UserRole.SUPERADMIN.value:
+        raise ForbiddenException("Superadmin access required")
+    return current_user
